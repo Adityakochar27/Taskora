@@ -6,6 +6,20 @@ export const userService = {
   create: (payload) => api.post('/users', payload),
   update: (id, payload) => api.put(`/users/${id}`, payload),
   remove: (id) => api.delete(`/users/${id}`),
+
+  /**
+   * Picker — used by assignment / chat dropdowns.
+   * { all: false } → just the requester's contacts (default)
+   * { all: true } → full org, filtered by RBAC server-side
+   */
+  picker: (params = {}) => api.get('/users/picker', { params }),
+
+  // Contacts (per-user "people I work with" list)
+  listContacts: (userId) => api.get(`/users/${userId}/contacts`),
+  addContacts: (userId, contactIds) =>
+    api.post(`/users/${userId}/contacts`, { contactIds }),
+  removeContact: (userId, contactId) =>
+    api.delete(`/users/${userId}/contacts/${contactId}`),
 };
 
 export const teamService = {
