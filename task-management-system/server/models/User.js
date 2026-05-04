@@ -23,6 +23,13 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
     teamIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }],
+    /**
+     * Personal "contacts" — users this person works with most often.
+     * Drives the default scope of assignment dropdowns and chat pickers.
+     * Doesn't enforce access (admin can still see all via "Show all" toggle);
+     * this is purely a UI-default for clarity.
+     */
+    contacts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     phone: { type: String, trim: true, default: '' }, // E.164 e.g. +919876543210 — used by WhatsApp
     fcmTokens: [{ type: String }], // multiple devices per user
     isActive: { type: Boolean, default: true },
