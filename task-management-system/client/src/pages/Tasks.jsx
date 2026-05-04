@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, ListTodo, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Plus, Search, ListTodo, LayoutGrid, List as ListIcon, Mic } from 'lucide-react';
 import TaskCard from '../components/TaskCard.jsx';
 import Modal from '../components/Modal.jsx';
+import VoiceTaskModal from '../components/VoiceTaskModal.jsx';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import {
@@ -19,7 +20,7 @@ export default function Tasks() {
   const { user, hasRole } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('board'); // 'board' | 'list'
+  const [view, setView] = useState('board');
   const [filters, setFilters] = useState({
     status: '', priority: '', q: '', overdue: '',
   });
@@ -63,7 +64,6 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* Filters */}
       <div className="card p-3 sm:p-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -164,6 +164,7 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
   const [teams, setTeams] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -179,6 +180,24 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
   }, [open]);
 
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const applyVoiceResult = (v) => {
+    setForm((f) => ({
+      ...f,
+      title: v.title || f.title,
+      priority: v.priority || f.priority,
+      deadline: v.deadline
+        ? toLocalDatetimeInput(new Date(v.deadline))
+        : f.deadline,
+      assignTo: v.assignedToUser ? 'user' : f.assignTo,
+      assignedToUser: v.assignedToUser || f.assignedToUser,
+    }));
+    if (v.assigneeHint && !v.assignedToUser) {
+      toast(`Heard "${v.assigneeHint}" but no matching user — pick from the list.`);
+    } else {
+      toast.success('Voice input applied');
+    }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -211,6 +230,15 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
   return (
     <Modal open={open} onClose={onClose} title="New task">
       <form onSubmit={onSubmit} className="space-y-4">
+        <button
+          type="button"
+          onClick={() => setShowVoice(true)}
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 border-dashed border-brand-200 bg-brand-50/50 text-brand-700 text-sm font-medium hover:bg-brand-50 hover:border-brand-300 transition"
+        >
+          <Mic size={16} />
+          Speak to fill — try "Submit report by Friday to Asha priority high"
+        </button>
+
         <div>
           <label className="label">Title</label>
           <input className="input" name="title" required value={form.title} onChange={onChange} />
@@ -287,6 +315,18 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
           </button>
         </div>
       </form>
+
+      <VoiceTaskModal
+        open={showVoice}
+        onClose={() => setShowVoice(false)}
+        users={users}
+        onResult={applyVoiceResult}
+      />
     </Modal>
   );
+}
+
+function toLocalDatetimeInput(d) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
