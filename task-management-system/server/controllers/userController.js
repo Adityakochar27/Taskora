@@ -168,3 +168,150 @@ exports.deleteUser = asyncHandler(async (req, res) => {
 
   res.json({ success: true });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Contacts — per-user "people I work with" list. Used to filter the
+// assignment / chat picker by default. Doesn't change RBAC (admins can still
+// see everyone via the "Show all" toggle on the picker), it's a UI default.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/users/:id/contacts
+ * Returns the populated contact list for the user. Self-only unless Admin.
+ */
+exports.listContacts = asyncHandler(async (req, res) => {
+  const isSelf = String(req.params.id) === String(req.user._id);
+  if (!isSelf && req.user.role !== 'Admin') {
+    throw new AppError('Not authorised', 403);
+  }
+
+  const u = await User.findById(req.params.id)
+    .populate({
+      path: 'contacts',
+      match: { isActive: true },
+      select: 'name email role department',
+      populate: { path: 'department', select: 'name' },
+    });
+
+  if (!u) throw new AppError('User not found', 404);
+  res.json({ success: true, data: u.contacts || [] });
+});
+
+/**
+ * POST /api/users/:id/contacts  { contactId }   (or { contactIds: [] } for bulk)
+ * Adds one or more users to this user's contact list.
+ */
+exports.addContacts = asyncHandler(async (req, res) => {
+  const isSelf = String(req.params.id) === String(req.user._id);
+  if (!isSelf && req.user.role !== 'Admin') {
+    throw new AppError('Not authorised', 403);
+  }
+
+  const ids = req.body.contactIds || (req.body.contactId ? [req.body.contactId] : []);
+  if (!ids.length) throw new AppError('contactId or contactIds is required', 400);
+
+  // Validate the candidate users exist and are active.
+  const candidates = await User.find({ _id: { $in: ids }, isActive: true }).select('_id');
+  const validIds = candidates.map((c) => String(c._id));
+  if (!validIds.length) throw new AppError('No valid users to add', 400);
+
+  const u = await User.findById(req.params.id);
+  if (!u) throw new AppError('User not found', 404);
+
+  const existing = new Set(u.contacts.map(String));
+  // Don't allow adding self.
+  validIds.forEach((id) => {
+    if (id !== String(u._id)) existing.add(id);
+  });
+  u.contacts = Array.from(existing);
+  await u.save();
+
+  res.json({ success: true, count: u.contacts.length });
+});
+
+/**
+ * DELETE /api/users/:id/contacts/:contactId
+ */
+exports.removeContact = asyncHandler(async (req, res) => {
+  const { id, contactId } = req.params;
+  const isSelf = String(id) === String(req.user._id);
+  if (!isSelf && req.user.role !== 'Admin') {
+    throw new AppError('Not authorised', 403);
+  }
+
+  const u = await User.findById(id);
+  if (!u) throw new AppError('User not found', 404);
+
+  const before = u.contacts.length;
+  u.contacts = u.contacts.filter((c) => String(c) !== String(contactId));
+  if (u.contacts.length === before) {
+    throw new AppError('Contact not found in list', 404);
+  }
+  await u.save();
+  res.json({ success: true });
+});
+
+/**
+ * GET /api/users/picker?all=false&q=&role=
+ *
+ * Returns the filtered list to populate assignment / chat dropdowns.
+ *  - Default (all=false): just the requester's contacts (with self excluded).
+ *  - all=true: full org (still filtered by role-based visibility — HOD only
+ *    sees own dept, Employee sees own team + dept, Admin sees everyone).
+ *
+ * This is the canonical endpoint the frontend's <ContactPicker> hits — keeps
+ * UI logic simple and prevents the client from having to reason about RBAC.
+ */
+exports.picker = asyncHandler(async (req, res) => {
+  const all = req.query.all === 'true';
+  const { q, role } = req.query;
+
+  const me = await User.findById(req.user._id).populate('contacts', '_id');
+  const baseSelect = '-password -fcmTokens -contacts';
+
+  let filter;
+  if (!all) {
+    // Just contacts.
+    const contactIds = (me.contacts || []).map((c) => c._id);
+    filter = { _id: { $in: contactIds }, isActive: true };
+  } else {
+    // Full org, filtered by RBAC.
+    filter = { isActive: true, _id: { $ne: req.user._id } };
+    if (req.user.role === 'HOD') {
+      filter.department = req.user.department;
+    } else if (req.user.role === 'Employee') {
+      // Employees see: their dept + team-mates.
+      const teamMates = await require('../models/Team').find({ members: req.user._id })
+        .distinct('members');
+      filter.$or = [
+        { department: req.user.department },
+        { _id: { $in: teamMates } },
+      ];
+    }
+  }
+
+  if (role) filter.role = role;
+  if (q) {
+    filter.$and = [
+      ...(filter.$and || []),
+      {
+        $or: [
+          { name: { $regex: q, $options: 'i' } },
+          { email: { $regex: q, $options: 'i' } },
+        ],
+      },
+    ];
+  }
+
+  const users = await User.find(filter)
+    .select(baseSelect)
+    .populate('department', 'name')
+    .sort({ name: 1 })
+    .limit(100);
+
+  res.json({
+    success: true,
+    data: users,
+    scope: all ? 'all' : 'contacts',
+  });
+});
