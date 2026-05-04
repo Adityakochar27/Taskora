@@ -1,0 +1,103 @@
+# Render Blueprint — provisions BOTH the API and the web frontend in one go.
+#
+# Usage:
+#   1. Push this repo to GitHub.
+#   2. On Render: New → Blueprint → connect this repo.
+#   3. Render reads this file, asks for the few secrets marked `sync: false`,
+#      then provisions taskflow-api (Node) and taskflow-web (static site).
+#
+# After first deploy:
+#   - Note the generated URLs (e.g. https://taskflow-api.onrender.com,
+#     https://taskflow-web.onrender.com — Render appends -<hash> if a name is
+#     globally taken).
+#   - Verify CLIENT_ORIGIN on taskflow-api matches the actual web URL.
+#   - Verify VITE_API_BASE on taskflow-web matches `https://<api-host>/api`.
+#   - Trigger a manual redeploy of the static site if you change VITE_API_BASE
+#     (Vite bakes env vars in at build time).
+
+services:
+  # --- Backend API ---
+  - type: web
+    name: taskflow-api
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: CLIENT_ORIGIN
+        sync: false        # paste the static-site URL after first deploy
+      - key: MONGO_URI
+        sync: false        # paste the MongoDB Atlas SRV string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_SIGNUP_KEY
+        generateValue: true
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: TWILIO_WEBHOOK_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+
+  # --- Frontend static site ---
+  - type: web
+    name: taskflow-web
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      # Vite reads this at BUILD time and inlines it into the bundle. After
+      # the API is deployed, paste its URL + /api here, then redeploy.
+      - key: VITE_API_BASE
+        sync: false
+      # Optional Firebase web config — leave blank if you're not using push
+      # notifications yet; the app still works without them.
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_FIREBASE_VAPID_KEY
+        sync: false
+    routes:
+      # SPA: every unknown route falls back to index.html so React Router can
+      # take over.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Service workers must NEVER be cached or users get stuck on old code.
+      - path: /service-worker.js
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /firebase-messaging-sw.js
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      # Vite hashes asset filenames so they can be cached forever.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

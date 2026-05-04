@@ -1,0 +1,40 @@
+# Local dev stack: Mongo + API. Run the React client separately with `npm run dev`
+# (it has Vite HMR which is awkward inside Docker for most setups).
+#
+#   docker compose up        # boots mongo + api
+#   docker compose run api npm run seed
+#
+# The API is reachable at http://localhost:5000
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      PORT: "5000"
+      MONGO_URI: mongodb://mongo:27017/taskflow
+      JWT_SECRET: dev_secret_change_me
+      JWT_EXPIRES_IN: 7d
+      ADMIN_SIGNUP_KEY: dev_admin_key
+      CLIENT_ORIGIN: http://localhost:5173
+      LOG_LEVEL: info
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:

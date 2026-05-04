@@ -1,0 +1,131 @@
+### TaskFlow API — REST Client requests
+### Open in VS Code with the "REST Client" extension (humao.rest-client) or
+### Jetbrains' built-in HTTP Client. Run requests by clicking "Send Request"
+### above each block.
+
+@host = http://localhost:5000
+@adminKey = change_me_only_used_for_first_admin
+
+### --- 1. Health ---
+GET {{host}}/api/health
+
+### --- 2. Bootstrap an Admin (first run only) ---
+POST {{host}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "Demo Admin",
+  "email": "admin@taskflow.dev",
+  "password": "admin1234",
+  "role": "Admin",
+  "phone": "+910000000000",
+  "adminKey": "{{adminKey}}"
+}
+
+### --- 3. Login (capture the token) ---
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@taskflow.dev",
+  "password": "admin1234"
+}
+
+@token = {{login.response.body.token}}
+
+### --- 4. Who am I ---
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### --- 5. Create a department ---
+# @name createDept
+POST {{host}}/api/departments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Engineering",
+  "description": "Software & infrastructure"
+}
+
+@deptId = {{createDept.response.body.department._id}}
+
+### --- 6. Create an employee ---
+# @name createEmp
+POST {{host}}/api/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Asha Frontend",
+  "email": "asha@taskflow.dev",
+  "password": "asha1234",
+  "role": "Employee",
+  "department": "{{deptId}}"
+}
+
+@employeeId = {{createEmp.response.body.user._id}}
+
+### --- 7. Create a task ---
+# @name createTask
+POST {{host}}/api/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Ship login page",
+  "description": "Wire to /api/auth",
+  "assignedToUser": "{{employeeId}}",
+  "priority": "High",
+  "deadline": "2026-05-15T17:00:00Z"
+}
+
+@taskId = {{createTask.response.body.task._id}}
+
+### --- 8. List tasks ---
+GET {{host}}/api/tasks?status=Pending&priority=High&limit=10
+Authorization: Bearer {{token}}
+
+### --- 9. Get one task ---
+GET {{host}}/api/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+
+### --- 10. Update task status ---
+PUT {{host}}/api/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "In Progress" }
+
+### --- 11. Add a comment ---
+POST {{host}}/api/tasks/{{taskId}}/comments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "text": "Working on this now." }
+
+### --- 12. Dashboard summary ---
+GET {{host}}/api/dashboard/summary
+Authorization: Bearer {{token}}
+
+### --- 13. Productivity report (last 30 days) ---
+GET {{host}}/api/dashboard/productivity?days=30
+Authorization: Bearer {{token}}
+
+### --- 14. Notifications ---
+GET {{host}}/api/notifications?unreadOnly=true
+Authorization: Bearer {{token}}
+
+### --- 15. WhatsApp parser dry-run (Admin only) ---
+POST {{host}}/api/whatsapp/test/parse
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "message": "Assign task: Submit report by Friday to Asha priority high" }
+
+### --- 16. Simulate a Twilio inbound webhook (works only when TWILIO_AUTH_TOKEN is unset) ---
+POST {{host}}/api/whatsapp/inbound
+Content-Type: application/x-www-form-urlencoded
+
+From=whatsapp:+910000000000&Body=Assign task: Daily standup at 10am to Asha
