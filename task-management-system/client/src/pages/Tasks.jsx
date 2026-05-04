@@ -3,14 +3,11 @@ import { Plus, Search, ListTodo, LayoutGrid, List as ListIcon, Mic } from 'lucid
 import TaskCard from '../components/TaskCard.jsx';
 import Modal from '../components/Modal.jsx';
 import VoiceTaskModal from '../components/VoiceTaskModal.jsx';
+import ContactPicker from '../components/ContactPicker.jsx';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import {
-  taskService,
-} from '../services/taskService.js';
-import {
-  userService, teamService, departmentService,
-} from '../services/index.js';
+import { taskService } from '../services/taskService.js';
+import { userService, teamService, departmentService } from '../services/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 
@@ -160,22 +157,22 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
     assignedToUser: '', assignedToTeam: '',
     department: '', priority: 'Medium', deadline: '',
   });
-  const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // for voice-input matcher
   const [submitting, setSubmitting] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     Promise.all([
-      userService.list({ limit: 200 }).catch(() => ({ data: [] })),
       teamService.list().catch(() => ({ data: [] })),
       departmentService.list().catch(() => ({ data: [] })),
-    ]).then(([u, t, d]) => {
-      setUsers(u.data || []);
+      userService.list({ limit: 200 }).catch(() => ({ data: [] })),
+    ]).then(([t, d, u]) => {
       setTeams(t.data || []);
       setDepartments(d.data || []);
+      setAllUsers(u.data || []);
     });
   }, [open]);
 
@@ -259,14 +256,12 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
           {form.assignTo === 'user' ? (
             <div>
               <label className="label">User</label>
-              <select className="input" name="assignedToUser" value={form.assignedToUser} onChange={onChange}>
-                <option value="">— select —</option>
-                {users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name} ({u.role})
-                  </option>
-                ))}
-              </select>
+              <ContactPicker
+                value={form.assignedToUser}
+                onChange={(uid) =>
+                  setForm((f) => ({ ...f, assignedToUser: uid }))}
+                placeholder="Select a person…"
+              />
             </div>
           ) : (
             <div>
@@ -319,7 +314,7 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
       <VoiceTaskModal
         open={showVoice}
         onClose={() => setShowVoice(false)}
-        users={users}
+        users={allUsers}
         onResult={applyVoiceResult}
       />
     </Modal>
