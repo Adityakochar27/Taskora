@@ -13,11 +13,22 @@ const commentSchema = new mongoose.Schema(
 
 const attachmentSchema = new mongoose.Schema(
   {
-    filename: String,
-    url: String,
+    filename: String,           // original filename as uploaded
+    url: String,                // public URL (Cloudinary or local /uploads/...)
+    storage: { type: String, default: 'cloudinary' }, // 'cloudinary' | 'local'
+    publicId: String,           // Cloudinary asset ID, used for delete
     mimeType: String,
     size: Number,
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  },
+  { timestamps: true }
+);
+
+const delegationSchema = new mongoose.Schema(
+  {
+    fromUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    toUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    reason: { type: String, required: true, trim: true },
   },
   { timestamps: true }
 );
@@ -64,6 +75,25 @@ const taskSchema = new mongoose.Schema(
     attachments: [attachmentSchema],
     comments: [commentSchema],
 
+    /**
+     * Delegation chain. Each entry records: fromUser → toUser, with reason.
+     * The current assignee is always assignedToUser; this array preserves the
+     * full history so the original assigner can see who's working on it now
+     * and why it was reassigned.
+     */
+    delegationHistory: [delegationSchema],
+
+    /**
+     * The user the task was ORIGINALLY assigned to (before any delegation).
+     * Stays constant once set so we can always notify them of changes.
+     * Null for team-assigned tasks.
+     */
+    originalAssignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+
     // Reminder bookkeeping so we don't double-send.
     reminderSent: { type: Boolean, default: false },
   },
@@ -77,6 +107,11 @@ taskSchema.pre('validate', function (next) {
   }
   if (this.assignedToUser && this.assignedToTeam) {
     return next(new Error('Task cannot be assigned to both a user and a team'));
+  }
+  // Capture the original assignee on first create so delegation history
+  // always has a starting point.
+  if (this.isNew && this.assignedToUser && !this.originalAssignedTo) {
+    this.originalAssignedTo = this.assignedToUser;
   }
   next();
 });
