@@ -4,8 +4,7 @@ WORKDIR /app
 
 # Install deps first for better layer caching.
 COPY package*.json ./
-RUN npm ci --omit=dev
-
+RUN npm install --omit=dev
 COPY . .
 
 # Multer writes here; ensure it exists.
