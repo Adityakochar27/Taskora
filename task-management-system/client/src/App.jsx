@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks.jsx';
 import TaskDetail from './pages/TaskDetail.jsx';
 import Teams from './pages/Teams.jsx';
 import Departments from './pages/Departments.jsx';
+import DepartmentDetail from './pages/DepartmentDetail.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import Profile from './pages/Profile.jsx';
 import Notifications from './pages/Notifications.jsx';
@@ -32,14 +33,8 @@ export default function App() {
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/teams" element={<Teams />} />
         <Route path="/departments" element={<Departments />} />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute roles={['Admin']}>
-              <AdminPanel />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/departments/:id" element={<DepartmentDetail />} />
+        <Route path="/admin" element={<ProtectedRoute roles={['Admin']}><AdminPanel /></ProtectedRoute>} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
