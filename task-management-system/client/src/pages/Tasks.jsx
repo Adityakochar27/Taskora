@@ -5,6 +5,7 @@ import TaskCard from '../components/TaskCard.jsx';
 import Modal from '../components/Modal.jsx';
 import VoiceTaskModal from '../components/VoiceTaskModal.jsx';
 import ContactPicker from '../components/ContactPicker.jsx';
+import BackButton from '../components/BackButton.jsx';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { taskService } from '../services/taskService.js';
@@ -49,11 +50,28 @@ export default function Tasks() {
     return g;
   }, [tasks]);
 
+  const hasUrlFilter = !!(
+    searchParams.get('status') ||
+    searchParams.get('priority') ||
+    searchParams.get('overdue') === 'true' ||
+    searchParams.get('q')
+  );
+
+  const filteredView =
+    filters.overdue === 'true' ? 'Overdue tasks'
+    : filters.status ? `${filters.status} tasks`
+    : null;
+
   return (
     <div className="space-y-5">
+      {hasUrlFilter && (
+        <div className="flex">
+          <BackButton fallbackTo="/dashboard" label="Back to dashboard" />
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{filteredView || 'Tasks'}</h1>
           <p className="text-sm text-slate-500">{tasks.length} task{tasks.length === 1 ? '' : 's'} visible</p>
         </div>
         {hasRole('Admin', 'HOD') && (<button onClick={() => setShowCreate(true)} className="btn-primary"><Plus size={16} /> New task</button>)}
