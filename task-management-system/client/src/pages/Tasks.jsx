@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, ListTodo, LayoutGrid, List as ListIcon, Mic } from 'lucide-react';
 import TaskCard from '../components/TaskCard.jsx';
 import Modal from '../components/Modal.jsx';
@@ -15,10 +16,16 @@ const STATUSES = ['Pending', 'In Progress', 'Completed'];
 
 export default function Tasks() {
   const { user, hasRole } = useAuth();
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('board');
-  const [filters, setFilters] = useState({ status: '', priority: '', q: '', overdue: '' });
+  const [filters, setFilters] = useState(() => ({
+    status: searchParams.get('status') || '',
+    priority: searchParams.get('priority') || '',
+    q: searchParams.get('q') || '',
+    overdue: searchParams.get('overdue') === 'true' ? 'true' : '',
+  }));
   const [showCreate, setShowCreate] = useState(false);
 
   const load = async () => {
@@ -31,7 +38,7 @@ export default function Tasks() {
       if (filters.overdue) params.overdue = 'true';
       const res = await taskService.list(params);
       setTasks(res.data || []);
-    } catch { /* toasted */ } finally { setLoading(false); }
+    } catch {} finally { setLoading(false); }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filters]);
@@ -167,7 +174,7 @@ function CreateTaskModal({ open, onClose, onCreated, currentUser }) {
       await taskService.create(payload);
       toast.success('Task created');
       onCreated?.();
-    } catch { /* toasted */ } finally { setSubmitting(false); }
+    } catch {} finally { setSubmitting(false); }
   };
 
   return (
