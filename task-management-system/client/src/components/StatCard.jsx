@@ -1,4 +1,6 @@
-export default function StatCard({ label, value, accent = 'brand', icon: Icon, hint }) {
+import { Link } from 'react-router-dom';
+
+export default function StatCard({ label, value, accent = 'brand', icon: Icon, hint, to }) {
   const accents = {
     brand: 'bg-brand-50 text-brand-700',
     amber: 'bg-amber-50 text-amber-700',
@@ -6,20 +8,21 @@ export default function StatCard({ label, value, accent = 'brand', icon: Icon, h
     red: 'bg-red-50 text-red-700',
     slate: 'bg-slate-100 text-slate-700',
   };
-  return (
-    <div className="card p-5">
+
+  const inner = (
+    <>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          {label}
-        </span>
-        {Icon && (
-          <span className={`w-9 h-9 rounded-lg grid place-items-center ${accents[accent]}`}>
-            <Icon size={18} />
-          </span>
-        )}
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
+        {Icon && (<span className={`w-9 h-9 rounded-lg grid place-items-center ${accents[accent]}`}><Icon size={18} /></span>)}
       </div>
-      <div className="mt-3 text-2xl font-bold text-slate-900">{value ?? '—'}</div>
+      <div className="mt-3 text-2xl font-bold text-slate-900">{value ?? '-'}</div>
       {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
-    </div>
+    </>
   );
+
+  if (to) {
+    return (<Link to={to} className="card p-5 hover:shadow-md hover:border-brand-200 transition cursor-pointer block">{inner}</Link>);
+  }
+
+  return (<div className="card p-5">{inner}</div>);
 }
