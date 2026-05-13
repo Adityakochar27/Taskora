@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Building2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Building2, Users as UsersIcon } from 'lucide-react';
 import Modal from '../components/Modal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Loader from '../components/Loader.jsx';
@@ -17,9 +18,19 @@ export default function Departments() {
     setLoading(true);
     try {
       const res = await departmentService.list();
-      setItems(res.data || []);
-    } catch { /* toasted */ }
-    finally { setLoading(false); }
+      const depts = res.data || [];
+      const withCounts = await Promise.all(
+        depts.map(async (d) => {
+          try {
+            const detail = await departmentService.get(d._id);
+            return { ...d, memberCount: detail.employees?.length || 0 };
+          } catch {
+            return { ...d, memberCount: 0 };
+          }
+        })
+      );
+      setItems(withCounts);
+    } catch {} finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -31,11 +42,7 @@ export default function Departments() {
           <h1 className="text-2xl font-bold text-slate-900">Departments</h1>
           <p className="text-sm text-slate-500">{items.length} department{items.length === 1 ? '' : 's'}</p>
         </div>
-        {hasRole('Admin') && (
-          <button onClick={() => setShowCreate(true)} className="btn-primary">
-            <Plus size={16} /> New department
-          </button>
-        )}
+        {hasRole('Admin') && (<button onClick={() => setShowCreate(true)} className="btn-primary"><Plus size={16} /> New department</button>)}
       </div>
 
       {loading ? (
@@ -45,29 +52,25 @@ export default function Departments() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((d) => (
-            <div key={d._id} className="card p-5">
+            <Link key={d._id} to={`/departments/${d._id}`} className="card p-5 hover:shadow-md hover:border-brand-200 transition cursor-pointer block">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 grid place-items-center">
-                  <Building2 size={18} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">{d.name}</h3>
-                  <div className="text-xs text-slate-500">
-                    HOD: <span className="text-slate-700">{d.hod?.name || '—'}</span>
-                  </div>
+                <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 grid place-items-center"><Building2 size={18} /></div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-900 truncate">{d.name}</h3>
+                  <div className="text-xs text-slate-500">HOD: <span className="text-slate-700">{d.hod?.name || '-'}</span></div>
                 </div>
               </div>
-              {d.description && <p className="text-sm text-slate-600">{d.description}</p>}
-            </div>
+              {d.description && <p className="text-sm text-slate-600 mb-2 line-clamp-2">{d.description}</p>}
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                <UsersIcon size={12} />
+                <span>{d.memberCount} {d.memberCount === 1 ? 'member' : 'members'}</span>
+              </div>
+            </Link>
           ))}
         </div>
       )}
 
-      <CreateDeptModal
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={() => { setShowCreate(false); load(); }}
-      />
+      <CreateDeptModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />
     </div>
   );
 }
@@ -79,9 +82,7 @@ function CreateDeptModal({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (!open) return;
-    userService.list({ role: 'HOD', limit: 200 })
-      .then((r) => setHods(r.data || []))
-      .catch(() => setHods([]));
+    userService.list({ role: 'HOD', limit: 200 }).then((r) => setHods(r.data || [])).catch(() => setHods([]));
   }, [open]);
 
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -91,15 +92,10 @@ function CreateDeptModal({ open, onClose, onCreated }) {
     if (!form.name.trim()) return toast.error('Name is required');
     setSubmitting(true);
     try {
-      await departmentService.create({
-        name: form.name,
-        description: form.description,
-        hod: form.hod || null,
-      });
+      await departmentService.create({ name: form.name, description: form.description, hod: form.hod || null });
       toast.success('Department created');
       onCreated?.();
-    } catch { /* toasted */ }
-    finally { setSubmitting(false); }
+    } catch {} finally { setSubmitting(false); }
   };
 
   return (
@@ -116,20 +112,14 @@ function CreateDeptModal({ open, onClose, onCreated }) {
         <div>
           <label className="label">HOD (optional)</label>
           <select className="input" name="hod" value={form.hod} onChange={onChange}>
-            <option value="">—</option>
+            <option value="">-</option>
             {hods.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
           </select>
-          {hods.length === 0 && (
-            <p className="text-xs text-slate-500 mt-1">
-              No HODs available — create users with role "HOD" in the Admin panel first.
-            </p>
-          )}
+          {hods.length === 0 && (<p className="text-xs text-slate-500 mt-1">No HODs available - create users with role "HOD" in the Users panel first.</p>)}
         </div>
         <div className="flex gap-2 justify-end pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create department'}
-          </button>
+          <button className="btn-primary" disabled={submitting}>{submitting ? 'Creating...' : 'Create department'}</button>
         </div>
       </form>
     </Modal>
