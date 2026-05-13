@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { LayoutDashboard, ListTodo, Users, Building2, UserCog, Bell, LogOut, Menu, X, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNotifications } from '../context/NotificationContext.jsx';
+import useSwipeBack from '../hooks/useSwipeBack.js';
 
 const NAV = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
@@ -17,6 +18,9 @@ export default function Layout() {
   const { unread } = useNotifications();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Enable iOS-style edge-swipe-back gesture for all authenticated pages.
+  useSwipeBack({ excludePaths: ['/dashboard', '/login', '/signup'] });
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
