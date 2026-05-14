@@ -32,6 +32,7 @@ export const teamService = {
 
 export const departmentService = {
   list: () => api.get('/departments'),
+  publicList: () => api.get('/departments/public'),
   get: (id) => api.get(`/departments/${id}`),
   create: (payload) => api.post('/departments', payload),
   update: (id, payload) => api.put(`/departments/${id}`, payload),
