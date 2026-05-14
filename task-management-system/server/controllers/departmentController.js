@@ -15,6 +15,18 @@ exports.listDepartments = asyncHandler(async (_req, res) => {
 });
 
 /**
+ * GET /api/departments/public
+ * Public, unauthenticated. Returns ONLY department _id + name so the signup
+ * page can show a department picker before the user has an account/token.
+ */
+exports.publicListDepartments = asyncHandler(async (_req, res) => {
+  const items = await Department.find({ isActive: true })
+    .select('name')
+    .sort({ name: 1 });
+  res.json({ success: true, data: items });
+});
+
+/**
  * POST /api/departments  (Admin)
  */
 exports.createDepartment = asyncHandler(async (req, res) => {
