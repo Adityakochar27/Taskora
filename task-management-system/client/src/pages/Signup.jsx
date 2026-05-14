@@ -11,22 +11,14 @@ export default function Signup() {
     role: 'Employee', department: '', adminKey: '',
   });
   const [departments, setDepartments] = useState([]);
-  const [deptsAvailable, setDeptsAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Try to load departments so employees can self-select. This endpoint is
-  // protected, so for a logged-out visitor it'll 401 - that's fine, we just
-  // hide the dropdown and an admin assigns the department later.
+  // Loads departments from the PUBLIC endpoint (/departments/public) so the
+  // picker works for logged-out visitors without throwing a 401.
   useEffect(() => {
-    departmentService.list()
-      .then((r) => {
-        setDepartments(r.data || []);
-        setDeptsAvailable((r.data || []).length > 0);
-      })
-      .catch(() => {
-        setDepartments([]);
-        setDeptsAvailable(false);
-      });
+    departmentService.publicList()
+      .then((r) => setDepartments(r.data || []))
+      .catch(() => setDepartments([]));
   }, []);
 
   if (user) return <Navigate to="/dashboard" replace />;
@@ -84,14 +76,18 @@ export default function Signup() {
             <p className="text-xs text-slate-500 mt-1">HOD accounts must be created by an Admin.</p>
           </div>
 
-          {form.role === 'Employee' && deptsAvailable && (
+          {form.role === 'Employee' && (
             <div>
-              <label className="label">Department <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="label">Department {departments.length > 0 && <span className="text-slate-400 font-normal">(optional)</span>}</label>
               <select className="input" name="department" value={form.department} onChange={onChange}>
                 <option value="">- Select your department -</option>
                 {departments.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
               </select>
-              <p className="text-xs text-slate-500 mt-1">Pick the department you'll be working in. An admin can move you later if needed.</p>
+              {departments.length > 0 ? (
+                <p className="text-xs text-slate-500 mt-1">Pick the department you'll be working in. An admin can move you later if needed.</p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">Department list is loading - if it stays empty, an admin can assign your department later.</p>
+              )}
             </div>
           )}
 
