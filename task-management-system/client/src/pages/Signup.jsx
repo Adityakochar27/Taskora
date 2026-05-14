@@ -11,10 +11,22 @@ export default function Signup() {
     role: 'Employee', department: '', adminKey: '',
   });
   const [departments, setDepartments] = useState([]);
+  const [deptsAvailable, setDeptsAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Try to load departments so employees can self-select. This endpoint is
+  // protected, so for a logged-out visitor it'll 401 - that's fine, we just
+  // hide the dropdown and an admin assigns the department later.
   useEffect(() => {
-    departmentService.list().then((r) => setDepartments(r.data || [])).catch(() => setDepartments([]));
+    departmentService.list()
+      .then((r) => {
+        setDepartments(r.data || []);
+        setDeptsAvailable((r.data || []).length > 0);
+      })
+      .catch(() => {
+        setDepartments([]);
+        setDeptsAvailable(false);
+      });
   }, []);
 
   if (user) return <Navigate to="/dashboard" replace />;
@@ -72,9 +84,9 @@ export default function Signup() {
             <p className="text-xs text-slate-500 mt-1">HOD accounts must be created by an Admin.</p>
           </div>
 
-          {form.role === 'Employee' && (
+          {form.role === 'Employee' && deptsAvailable && (
             <div>
-              <label className="label">Department {departments.length > 0 && <span className="text-slate-400 font-normal">(optional)</span>}</label>
+              <label className="label">Department <span className="text-slate-400 font-normal">(optional)</span></label>
               <select className="input" name="department" value={form.department} onChange={onChange}>
                 <option value="">- Select your department -</option>
                 {departments.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
